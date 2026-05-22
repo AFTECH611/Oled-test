@@ -50,11 +50,11 @@ struct GpioPin {
 };
 
 // Default pin map – Radxa Rock 5b+
-inline constexpr GpioPin kPinEncA    = {"/dev/gpiochip1",  5};  // Pin 13  GPIO1_A5
-inline constexpr GpioPin kPinEncB    = {"/dev/gpiochip1",  3};  // Pin 12  GPIO1_A3  (moved from Pin 11 – PCIe regulator)
-inline constexpr GpioPin kPinEncBtn  = {"/dev/gpiochip1",  8};  // Pin 15  GPIO1_B0  (moved from Pin 5/gpiochip4)
-inline constexpr GpioPin kPinConfirm = {"/dev/gpiochip1",  9};  // Pin 22  GPIO1_B1  (moved from Pin 16 – HDMI HPD)
-inline constexpr GpioPin kPinBack    = {"/dev/gpiochip1", 24};  // Pin 18  GPIO1_D0
+inline constexpr GpioPin kPinEncA    = {"/dev/gpiochip3", 16}; // Pin 13 = GPIO3_C0
+inline constexpr GpioPin kPinEncB    = {"/dev/gpiochip3", 13}; // Pin 12 = GPIO3_B5
+inline constexpr GpioPin kPinEncBtn  = {"/dev/gpiochip3", 19}; // Pin 15 = GPIO3_C3
+inline constexpr GpioPin kPinConfirm = {"/dev/gpiochip3", 25}; // Pin 22 = GPIO3_D1
+inline constexpr GpioPin kPinBack    = {"/dev/gpiochip3", 20}; // Pin 18 = GPIO3_C4
 
 // ─────────────────────────────────────────────────────────────
 //  Data structures  (thread-safe to write from any thread)
