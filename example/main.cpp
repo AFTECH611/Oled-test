@@ -2,8 +2,16 @@
  * @file  main.cpp
  * @brief Demo entry point for the OLED UI driver.
  *
-**/
-#include "include/oled_driver.hpp"
+ * All data is static / pre-seeded – no live sensors needed.
+ * Encoder (CW/CCW) scrolls within the active screen or cycles
+ * menu selection; EncPress / Confirm navigates in/out.
+ *
+ * Build (example):
+ *   g++ -std=c++17 -O2 -o oled_demo main.cpp oled_driver.cpp \
+ *       -lgpiod -lpthread
+ */
+
+#include "oled_driver.hpp"
 
 #include <chrono>
 #include <csignal>
@@ -97,23 +105,23 @@ static std::vector<oled::LogEntry> makeLogEntries() {
     };
 
     uint64_t t = 1'000; // ms offset from start
-    add(L::INFO, "core",     "AimRT runtime started",          t += 120);
-    add(L::INFO, "executor", "Thread pool ready (8 workers)",  t += 340);
-    add(L::INFO, "plugin",   "IMU plugin loaded OK",           t += 80 );
-    add(L::INFO, "plugin",   "Joystick plugin loaded OK",      t += 60 );
-    add(L::WARN, "joint",    "Joint L_KNEE temp > 43 degC",    t += 500);
-    add(L::INFO, "ctrl",     "Balance controller active",      t += 200);
-    add(L::INFO, "gait",     "Walking gait engaged",           t += 150);
-    add(L::WARN, "imu",      "Gyro drift detected 0.01 r/s",  t += 700);
-    add(L::ERR,  "comms",    "CAN frame timeout ch2",          t += 300);
-    add(L::INFO, "comms",    "CAN ch2 recovered",              t += 120);
-    add(L::INFO, "gait",     "Step cycle: 0.48 s",             t += 480);
-    add(L::WARN, "ctrl",     "ZMP margin 12% (low)",           t += 900);
-    add(L::INFO, "ctrl",     "ZMP margin restored 28%",        t += 400);
-    add(L::INFO, "sbc",      "CPU temp 61 degC – nominal",     t += 200);
-    add(L::ERR,  "joint",    "R_ANKLE_R enc read fail",        t += 100);
-    add(L::INFO, "joint",    "R_ANKLE_R enc OK after retry",   t += 50 );
-    add(L::INFO, "gait",     "Terrain adapt: slope 3 deg",     t += 600);
+    add(L::Level::Info, "core",     "AimRT runtime started",          t += 120);
+    add(L::Level::Info, "executor", "Thread pool ready (8 workers)",  t += 340);
+    add(L::Level::Info, "plugin",   "IMU plugin loaded OK",           t += 80 );
+    add(L::Level::Info, "plugin",   "Joystick plugin loaded OK",      t += 60 );
+    add(L::Level::Warn, "joint",    "Joint L_KNEE temp > 43 degC",    t += 500);
+    add(L::Level::Info, "ctrl",     "Balance controller active",      t += 200);
+    add(L::Level::Info, "gait",     "Walking gait engaged",           t += 150);
+    add(L::Level::Warn, "imu",      "Gyro drift detected 0.01 r/s",  t += 700);
+    add(L::Level::Err,  "comms",    "CAN frame timeout ch2",          t += 300);
+    add(L::Level::Info, "comms",    "CAN ch2 recovered",              t += 120);
+    add(L::Level::Info, "gait",     "Step cycle: 0.48 s",             t += 480);
+    add(L::Level::Warn, "ctrl",     "ZMP margin 12% (low)",           t += 900);
+    add(L::Level::Info, "ctrl",     "ZMP margin restored 28%",        t += 400);
+    add(L::Level::Info, "sbc",      "CPU temp 61 degC – nominal",     t += 200);
+    add(L::Level::Err,  "joint",    "R_ANKLE_R enc read fail",        t += 100);
+    add(L::Level::Info, "joint",    "R_ANKLE_R enc OK after retry",   t += 50 );
+    add(L::Level::Info, "gait",     "Terrain adapt: slope 3 deg",     t += 600);
 
     return logs;
 }
