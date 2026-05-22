@@ -362,22 +362,23 @@ bool OledDisplay::init() {
     if (fd_ < 0) return false;
     if (::ioctl(fd_, I2C_SLAVE, addr_) < 0) return false;
 
-    // SH1106 init sequence (23 bytes)
-    static constexpr std::array<uint8_t, 23> kInitSeq = {{
+    // SSD1306 init sequence
+    static constexpr std::array<uint8_t, 25> kInitSeq = {{
         0xAE,        // display off
-        0xD5, 0x80,  // clock div / oscillator
+        0xD5, 0x80,  // clock divide ratio / oscillator frequency
         0xA8, 0x3F,  // multiplex ratio (64MUX)
         0xD3, 0x00,  // display offset = 0
         0x40,        // start line = 0
-        0xAD, 0x8B,  // internal charge pump ON
+        0x8D, 0x14,  // charge pump: enable
         0xA1,        // segment remap (flip x)
         0xC8,        // COM scan direction (flip y)
         0xDA, 0x12,  // COM pins hardware config
         0x81, 0xCF,  // contrast
-        0xD9, 0x1F,  // pre-charge period
+        0xD9, 0xF1,  // pre-charge period
         0xDB, 0x40,  // VCOM deselect level
         0xA4,        // entire display ON (follow RAM)
-        0xA6,        // normal display
+        0xA6,        // normal display (not inverted)
+        0x20, 0x00,  // horizontal addressing mode
         0xAF,        // display ON
     }};
     for (uint8_t c : kInitSeq) if (!cmd(c)) return false;
@@ -389,8 +390,8 @@ bool OledDisplay::init() {
 
 bool OledDisplay::writePage(int page, const uint8_t* data) {
     cmd(static_cast<uint8_t>(0xB0 | page));  // set page
-    cmd(0x02);                                // low  column (SH1106 2-col offset)
-    cmd(0x10);                                // high column
+    cmd(0x00);                                // low  column = 0 (SSD1306, no offset)
+    cmd(0x10);                                // high column = 0
 
     std::array<uint8_t, 129> buf;
     buf[0] = 0x40;  // data mode

@@ -41,7 +41,7 @@ inline constexpr int kBufLen = kW * kPages;  ///< 1024 bytes
 //  Default hardware addresses
 // ─────────────────────────────────────────────────────────────
 inline constexpr std::string_view kI2CDev   = "/dev/i2c-7";
-inline constexpr uint8_t          kOledAddr = 0x3C;
+inline constexpr uint8_t          kOledAddr = 0x3c;
 
 // GPIO pin descriptor
 struct GpioPin {
