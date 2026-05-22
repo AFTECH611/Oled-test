@@ -41,7 +41,7 @@ inline constexpr int kBufLen = kW * kPages;  ///< 1024 bytes
 //  Default hardware addresses
 // ─────────────────────────────────────────────────────────────
 inline constexpr std::string_view kI2CDev   = "/dev/i2c-7";
-inline constexpr uint8_t          kOledAddr = 0x3c;
+inline constexpr uint8_t          kOledAddr = 0x3C;
 
 // GPIO pin descriptor
 struct GpioPin {
@@ -50,11 +50,11 @@ struct GpioPin {
 };
 
 // Default pin map – Radxa Rock 5b+
-inline constexpr GpioPin kPinEncA    = {"/dev/gpiochip1",  5};  // Pin 13
-inline constexpr GpioPin kPinEncB    = {"/dev/gpiochip1",  4};  // Pin 11
-inline constexpr GpioPin kPinEncBtn  = {"/dev/gpiochip4", 10};  // Pin 5
-inline constexpr GpioPin kPinConfirm = {"/dev/gpiochip1", 22};  // Pin 16
-inline constexpr GpioPin kPinBack    = {"/dev/gpiochip1", 24};  // Pin 18
+inline constexpr GpioPin kPinEncA    = {"/dev/gpiochip1",  5};  // Pin 13  GPIO1_A5
+inline constexpr GpioPin kPinEncB    = {"/dev/gpiochip1",  3};  // Pin 12  GPIO1_A3  (moved from Pin 11 – PCIe regulator)
+inline constexpr GpioPin kPinEncBtn  = {"/dev/gpiochip1",  8};  // Pin 15  GPIO1_B0  (moved from Pin 5/gpiochip4)
+inline constexpr GpioPin kPinConfirm = {"/dev/gpiochip1",  9};  // Pin 22  GPIO1_B1  (moved from Pin 16 – HDMI HPD)
+inline constexpr GpioPin kPinBack    = {"/dev/gpiochip1", 24};  // Pin 18  GPIO1_D0
 
 // ─────────────────────────────────────────────────────────────
 //  Data structures  (thread-safe to write from any thread)
