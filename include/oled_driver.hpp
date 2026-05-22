@@ -245,6 +245,7 @@ private:
         bool    stable     = true;
         int64_t press_ms   = 0;
         bool    long_fired = false;
+        int64_t change_ms = 0;
     };
     BtnState bs_enc_, bs_confirm_, bs_back_;
 

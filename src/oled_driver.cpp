@@ -489,6 +489,8 @@ void InputHandler::push(Ev ev) {
     {
         std::lock_guard lk{q_mtx_};
         if (queue_.size() < 16) queue_.push_back(ev);
+        printf("EV=%d\n", (int)ev);
+        fflush(stdout);
     }
     if (cb_) cb_(ev);
 }
@@ -513,24 +515,44 @@ void InputHandler::loop() {
         // ── Button handler (lambda captures by reference) ──
         const int64_t now = detail::nowMs();
         auto handleBtn = [&](BtnState& bs, std::size_t gpio_idx,
-                             Ev short_ev, Ev long_ev) {
-            const bool raw = (readLine(gpio_idx) == 0);  // active-low
+                     Ev short_ev, Ev long_ev) {
+
+            const bool raw = (readLine(gpio_idx) == 0);
+            const int64_t now = detail::nowMs();
+
+            // state changed
             if (raw != bs.last) {
-                bs.last   = raw;
-                bs.stable = false;
+                bs.last = raw;
+                bs.change_ms = now;
             }
-            if (!bs.stable) {
+
+            // debounce
+            if ((now - bs.change_ms) < cfg_.debounce_ms)
+                return;
+
+            // stable pressed
+            if (raw && !bs.stable) {
                 bs.stable = true;
-                if (raw) {
-                    bs.press_ms   = now;
-                    bs.long_fired = false;
-                } else if (bs.press_ms > 0 && !bs.long_fired) {
-                    push(short_ev);
-                    bs.press_ms = 0;
-                }
+                bs.press_ms = now;
+                bs.long_fired = false;
             }
-            if (raw && bs.press_ms > 0 && !bs.long_fired &&
+
+            // stable released
+            else if (!raw && bs.stable) {
+                bs.stable = false;
+
+                if (!bs.long_fired)
+                    push(short_ev);
+
+                bs.press_ms = 0;
+            }
+
+            // long press
+            if (raw &&
+                bs.stable &&
+                !bs.long_fired &&
                 (now - bs.press_ms) >= cfg_.long_ms) {
+
                 push(long_ev);
                 bs.long_fired = true;
             }

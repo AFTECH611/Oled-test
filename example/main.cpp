@@ -154,7 +154,7 @@ int main() {
     cfg.input.confirm = oled::kPinConfirm;
     cfg.input.back    = oled::kPinBack;
     cfg.input.poll_ms    = 5;
-    cfg.input.debounce_ms= 30;
+    cfg.input.debounce_ms= 70;
     cfg.input.long_ms    = 800;
 
     oled::UIManager ui(cfg);
