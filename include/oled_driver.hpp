@@ -49,12 +49,25 @@ struct GpioPin {
     unsigned int     line;  ///< line offset within the chip
 };
 
-// Default pin map – Radxa Rock 5b+
-inline constexpr GpioPin kPinEncA    = {"/dev/gpiochip3", 16}; // Pin 13 = GPIO3_C0
-inline constexpr GpioPin kPinEncB    = {"/dev/gpiochip3", 13}; // Pin 12 = GPIO3_B5
-inline constexpr GpioPin kPinEncBtn  = {"/dev/gpiochip3", 19}; // Pin 15 = GPIO3_C3
-inline constexpr GpioPin kPinConfirm = {"/dev/gpiochip3", 25}; // Pin 22 = GPIO3_D1
-inline constexpr GpioPin kPinBack    = {"/dev/gpiochip3", 20}; // Pin 18 = GPIO3_C4
+inline constexpr GpioPin kPinEncA{
+    "/dev/gpiochip3", 16
+}; // Pin 13 = GPIO3_C0
+
+inline constexpr GpioPin kPinEncB{
+    "/dev/gpiochip3", 13
+}; // Pin 12 = GPIO3_B5
+
+inline constexpr GpioPin kPinEncBtn{
+    "/dev/gpiochip3", 19
+}; // Pin 15 = GPIO3_C3
+
+inline constexpr GpioPin kPinConfirm{
+    "/dev/gpiochip3", 25
+}; // Pin 22 = GPIO3_D1
+
+inline constexpr GpioPin kPinBack{
+    "/dev/gpiochip3", 20
+}; // Pin 18 = GPIO3_C4
 
 // ─────────────────────────────────────────────────────────────
 //  Data structures  (thread-safe to write from any thread)
@@ -238,13 +251,15 @@ private:
 
     // Encoder
     uint8_t enc_prev_ = 0;
+    int enc_accum_ = 0;
 
     // Per-button debounce + long-press state
     struct BtnState {
-        bool    last       = true;   // GPIO idles high with pull-up
-        bool    stable     = true;
-        int64_t press_ms   = 0;
-        bool    long_fired = false;
+        bool last        = false;
+        bool stable      = false;
+        bool long_fired  = false;
+
+        int64_t press_ms  = 0;
         int64_t change_ms = 0;
     };
     BtnState bs_enc_, bs_confirm_, bs_back_;

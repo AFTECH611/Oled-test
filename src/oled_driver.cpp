@@ -501,68 +501,157 @@ int InputHandler::readLine(std::size_t idx) const {
 
 void InputHandler::loop() {
     using namespace std::chrono;
+
     while (running_.load(std::memory_order_relaxed)) {
-        // ── Encoder ────────────────────────────────────────
-        const int a = readLine(0), b = readLine(1);
-        const auto curr = static_cast<uint8_t>((a << 1) | b);
+
+        // ====================================================
+        // Rotary Encoder (Quadrature Decoder)
+        // ====================================================
+
+        const int a = readLine(0);
+        const int b = readLine(1);
+
+        // If direction reversed:
+        // swap a/b below
+        const uint8_t curr =
+            static_cast<uint8_t>((a << 1) | b);
+
         if (curr != enc_prev_) {
-            const int8_t dir = kEncTable[(enc_prev_ << 2) | curr];
-            if      (dir > 0) push(Ev::EncCW);
-            else if (dir < 0) push(Ev::EncCCW);
+
+            const int8_t dir =
+                kEncTable[(enc_prev_ << 2) | curr];
+
+            if (dir != 0) {
+
+                enc_accum_ += dir;
+
+                // Full detent reached
+                if (enc_accum_ >= 4) {
+
+                    push(Ev::EncCW);
+
+                    std::printf("EV=EncCW\n");
+                    std::fflush(stdout);
+
+                    enc_accum_ = 0;
+                }
+                else if (enc_accum_ <= -4) {
+
+                    push(Ev::EncCCW);
+
+                    std::printf("EV=EncCCW\n");
+                    std::fflush(stdout);
+
+                    enc_accum_ = 0;
+                }
+            }
+
             enc_prev_ = curr;
         }
 
-        // ── Button handler (lambda captures by reference) ──
+        // ====================================================
+        // Buttons
+        // ====================================================
+
         const int64_t now = detail::nowMs();
-        auto handleBtn = [&](BtnState& bs, std::size_t gpio_idx,
-                     Ev short_ev, Ev long_ev) {
 
-            const bool raw = (readLine(gpio_idx) == 0);
-            const int64_t now = detail::nowMs();
+        auto handleBtn =
+            [&](BtnState& bs,
+                std::size_t gpio_idx,
+                Ev short_ev,
+                Ev long_ev)
+        {
+            const bool raw =
+                (readLine(gpio_idx) == 0);
 
-            // state changed
+            // State changed
             if (raw != bs.last) {
+
                 bs.last = raw;
                 bs.change_ms = now;
             }
 
-            // debounce
-            if ((now - bs.change_ms) < cfg_.debounce_ms)
+            // Debounce window
+            if ((now - bs.change_ms)
+                < cfg_.debounce_ms)
+            {
                 return;
+            }
 
-            // stable pressed
+            // Stable pressed
             if (raw && !bs.stable) {
+
                 bs.stable = true;
                 bs.press_ms = now;
                 bs.long_fired = false;
             }
 
-            // stable released
+            // Stable released
             else if (!raw && bs.stable) {
+
                 bs.stable = false;
 
-                if (!bs.long_fired)
+                if (!bs.long_fired &&
+                    short_ev != Ev::None)
+                {
                     push(short_ev);
+
+                    std::printf(
+                        "EV=%d\n",
+                        static_cast<int>(short_ev));
+
+                    std::fflush(stdout);
+                }
 
                 bs.press_ms = 0;
             }
 
-            // long press
+            // Long press
             if (raw &&
                 bs.stable &&
                 !bs.long_fired &&
-                (now - bs.press_ms) >= cfg_.long_ms) {
-
+                long_ev != Ev::None &&
+                (now - bs.press_ms)
+                    >= cfg_.long_ms)
+            {
                 push(long_ev);
+
+                std::printf(
+                    "EV=%d LONG\n",
+                    static_cast<int>(long_ev));
+
+                std::fflush(stdout);
+
                 bs.long_fired = true;
             }
         };
 
-        handleBtn(bs_enc_,     2, Ev::EncPress,   Ev::EncPress);
-        handleBtn(bs_confirm_, 3, Ev::Confirm,     Ev::ConfirmLong);
-        handleBtn(bs_back_,    4, Ev::Back,        Ev::BackLong);
+        // Encoder push button
+        handleBtn(
+            bs_enc_,
+            2,
+            Ev::EncPress,
+            Ev::None
+        );
 
-        std::this_thread::sleep_for(milliseconds(cfg_.poll_ms));
+        // Confirm button
+        handleBtn(
+            bs_confirm_,
+            3,
+            Ev::Confirm,
+            Ev::ConfirmLong
+        );
+
+        // Back button
+        handleBtn(
+            bs_back_,
+            4,
+            Ev::Back,
+            Ev::BackLong
+        );
+
+        std::this_thread::sleep_for(
+            milliseconds(cfg_.poll_ms));
     }
 }
 
