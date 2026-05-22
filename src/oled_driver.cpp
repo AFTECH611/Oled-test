@@ -10,11 +10,9 @@
 #include <cerrno>
 #include <chrono>
 #include <cmath>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
-#include <format>
-#include <numbers>
-#include <ranges>
 #include <stdexcept>
 
 #include <fcntl.h>
@@ -31,7 +29,7 @@ namespace oled {
 namespace detail {
 
 [[nodiscard]] constexpr float lerp(float a, float b, float t) noexcept {
-    return std::lerp(a, b, t);   // <cmath> std::lerp – C++20
+    return a + t * (b - a);
 }
 
 [[nodiscard]] constexpr float easeOut(float t) noexcept {
@@ -45,11 +43,24 @@ namespace detail {
         steady_clock::now().time_since_epoch()).count();
 }
 
-/// Format a float: width + precision via std::format (C++20)
+/// printf-style formatting into a std::string (C++17 replacement for std::format)
+[[nodiscard]] std::string sfmt(const char* fmt, ...) {
+    char buf[128];
+    va_list ap;
+    va_start(ap, fmt);
+    std::vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    return buf;
+}
+
+/// Format a float: width + precision (C++17 replacement for std::format float)
 [[nodiscard]] std::string fmtF(float v, int prec = 2, int total_w = 0) {
+    char buf[64];
     if (total_w > 0)
-        return std::format("{:{}.{}f}", v, total_w, prec);
-    return std::format("{:.{}f}", v, prec);
+        std::snprintf(buf, sizeof(buf), "%*.*f", total_w, prec, v);
+    else
+        std::snprintf(buf, sizeof(buf), "%.*f", prec, v);
+    return buf;
 }
 
 } // namespace detail
@@ -376,22 +387,21 @@ bool OledDisplay::init() {
     return true;
 }
 
-bool OledDisplay::writePage(int page, std::span<const uint8_t, 128> data) {
+bool OledDisplay::writePage(int page, const uint8_t* data) {
     cmd(static_cast<uint8_t>(0xB0 | page));  // set page
     cmd(0x02);                                // low  column (SH1106 2-col offset)
     cmd(0x10);                                // high column
 
     std::array<uint8_t, 129> buf;
     buf[0] = 0x40;  // data mode
-    std::ranges::copy(data, buf.begin() + 1);
+    std::copy(data, data + 128, buf.begin() + 1);
     return ::write(fd_, buf.data(), buf.size()) == static_cast<ssize_t>(buf.size());
 }
 
 void OledDisplay::flush(const FrameBuffer& fb) {
-    const auto raw = fb.raw();
+    const auto& raw = fb.raw();
     for (int p = 0; p < kPages; ++p) {
-        std::span<const uint8_t, 128> page_data{raw.data() + p * kW, 128};
-        writePage(p, page_data);
+        writePage(p, raw.data() + p * kW);
     }
 }
 
@@ -542,7 +552,7 @@ void UIScreen::drawTitleBar(FrameBuffer& fb, std::string_view label,
     fb.drawString(2, 1, label, 1, /*invert=*/true);
 
     if (total > 1) {
-        const auto idxStr = std::format("{}/{}", cur_idx, total);
+        const auto idxStr = detail::sfmt("%d/%d", cur_idx, total);
         const int  tw     = static_cast<int>(idxStr.size()) * FrameBuffer::charW();
         fb.drawStringRight(kW - 1, 1, idxStr, 1);
         fb.invertRect(kW - 1 - tw, 0, tw, 9);
@@ -587,7 +597,7 @@ void MenuScreen::onInput(Ev ev) {
 
 void MenuScreen::update(float dt) {
     sy_    = detail::lerp(sy_,  tsy_, std::min(1.f, dt * 20.f));
-    pulse_ = std::fmod(pulse_ + dt * 2.f, 2.f * std::numbers::pi_v<float>);
+    pulse_ = std::fmod(pulse_ + dt * 2.f, 2.f * 3.14159265f);
 }
 
 void MenuScreen::render(FrameBuffer& fb) const {
@@ -595,7 +605,7 @@ void MenuScreen::render(FrameBuffer& fb) const {
 
     // IP bar
     fb.fillRect(0, 0, kW, 9);
-    fb.drawString(2, 1, std::format("IP: {}", ip_.empty() ? "---" : ip_),
+    fb.drawString(2, 1, detail::sfmt("IP: %s", ip_.empty() ? "---" : ip_.c_str()),
                   1, /*invert=*/true);
     fb.drawHLine(0, 9, kW);
 
@@ -681,8 +691,8 @@ void JointsScreen::render(FrameBuffer& fb) const {
 
         const auto& j = data_.joints[i];
         fb.drawString(0,   iy, j.name.substr(0, 3));
-        fb.drawString(20,  iy, std::format("{:+.2f}", j.pos_rad));
-        fb.drawString(68,  iy, std::format("{:.1f}", j.temp_c));
+        fb.drawString(20,  iy, detail::sfmt("%+.2f", j.pos_rad));
+        fb.drawString(68,  iy, detail::sfmt("%.1f", j.temp_c));
         fb.drawChar  (100, iy, 'o');
         fb.drawChar  (106, iy, 'C');
 
@@ -740,12 +750,12 @@ void IMUScreen::render(FrameBuffer& fb) const {
     { std::lock_guard lk{mtx_}; d = data_; }
 
     // Gyro + Euler values (left column)
-    fb.drawString(0,  11, std::format("Gx{:+5.1f}", d.gx));
-    fb.drawString(0,  20, std::format("Gy{:+5.1f}", d.gy));
-    fb.drawString(0,  29, std::format("Gz{:+5.1f}", d.gz));
-    fb.drawString(0,  40, std::format("R{:+5.1f}",  d.roll));
-    fb.drawString(0,  49, std::format("P{:+5.1f}",  d.pitch));
-    fb.drawString(0,  58, std::format("Y{:+5.1f}",  d.yaw));
+    fb.drawString(0,  11, detail::sfmt("Gx%+5.1f", d.gx));
+    fb.drawString(0,  20, detail::sfmt("Gy%+5.1f", d.gy));
+    fb.drawString(0,  29, detail::sfmt("Gz%+5.1f", d.gz));
+    fb.drawString(0,  40, detail::sfmt("R%+5.1f",  d.roll));
+    fb.drawString(0,  49, detail::sfmt("P%+5.1f",  d.pitch));
+    fb.drawString(0,  58, detail::sfmt("Y%+5.1f",  d.yaw));
 
     // Bubble level (right)
     constexpr int cx = 100, cy = 38, r = 20;
@@ -886,7 +896,7 @@ void LogScreen::onInput(Ev ev) {
 
 void LogScreen::update(float dt) {
     soff_    = detail::lerp(soff_, tsoff_, std::min(1.f, dt * 18.f));
-    blink_t_ = std::fmod(blink_t_ + dt * 2.f, 2.f * std::numbers::pi_v<float>);
+    blink_t_ = std::fmod(blink_t_ + dt * 2.f, 2.f * 3.14159265f);
 }
 
 void LogScreen::render(FrameBuffer& fb) const {
@@ -971,7 +981,7 @@ void SBCScreen::render(FrameBuffer& fb) const {
     drawTitleBar(fb, "SBC STATUS", 5, 5);
 
     // CPU temp in title bar
-    const auto tbuf = std::format("{:.1f}oC", d.cpu_temp);
+    const auto tbuf = detail::sfmt("%.1foC", d.cpu_temp);
     const int  tw   = static_cast<int>(tbuf.size()) * FrameBuffer::charW();
     fb.drawStringRight(kW - 1, 1, tbuf, 1);
     fb.invertRect(kW - 1 - tw, 0, tw, 9);
@@ -990,17 +1000,17 @@ void SBCScreen::render(FrameBuffer& fb) const {
         const int by  = 11 + row * 13;
         const int lx  = col * 64;
 
-        fb.drawString(lx, by + 1, std::format("C{}", i));
+        fb.drawString(lx, by + 1, detail::sfmt("C%d", i));
         fb.drawProgressBar(bx, by, kBarW, kBarH + 2, anim_core_[i]);
         fb.drawString(bx + kBarW - 24, by + kBarH + 3,
-                      std::format("{:3d}%",
+                      detail::sfmt("%3d%%",
                                   static_cast<int>(anim_core_[i] * 100.f)));
     }
 
     // RAM bar
     const int ram_y = 11 + 4 * 13 + 2;
     fb.drawString(0, ram_y,
-                  std::format("RAM {:.0f}/{:.0f}MB",
+                  detail::sfmt("RAM %.0f/%.0fMB",
                               d.ram_used_mb, d.ram_total_mb));
     fb.drawProgressBar(0, ram_y + 9, kW - 1, 5, anim_ram_);
 }

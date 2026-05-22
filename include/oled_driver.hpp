@@ -22,7 +22,6 @@
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <span>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -144,11 +143,11 @@ public:
     /// Blit src into this buffer shifted horizontally by dx pixels.
     void blitShifted(const FrameBuffer& src, int dx);
 
-    [[nodiscard]] std::span<const uint8_t> raw() const noexcept {
+    [[nodiscard]] const std::array<uint8_t, kBufLen>& raw() const noexcept {
         return buf_;
     }
     /// Mutable access (needed for transition compositing)
-    [[nodiscard]] std::span<uint8_t> rawMut() noexcept { return buf_; }
+    [[nodiscard]] std::array<uint8_t, kBufLen>& rawMut() noexcept { return buf_; }
 
 private:
     std::array<uint8_t, kBufLen> buf_{};
@@ -177,7 +176,7 @@ public:
 private:
     bool cmd (uint8_t c);
     bool cmds(std::initializer_list<uint8_t> cs);
-    bool writePage(int page, std::span<const uint8_t, 128> data);
+    bool writePage(int page, const uint8_t* data);
 
     int         fd_   = -1;
     uint8_t     addr_;
