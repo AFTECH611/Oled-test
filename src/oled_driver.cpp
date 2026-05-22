@@ -389,14 +389,16 @@ bool OledDisplay::init() {
 }
 
 bool OledDisplay::writePage(int page, const uint8_t* data) {
-    cmd(static_cast<uint8_t>(0xB0 | page));  // set page
-    cmd(0x00);                                // low  column = 0 (SSD1306, no offset)
-    cmd(0x10);                                // high column = 0
+    cmd(static_cast<uint8_t>(0xB0 | page));
+    cmd(0x00);
+    cmd(0x10);
 
-    std::array<uint8_t, 129> buf;
-    buf[0] = 0x40;  // data mode
-    std::copy(data, data + 128, buf.begin() + 1);
-    return ::write(fd_, buf.data(), buf.size()) == static_cast<ssize_t>(buf.size());
+    // Send pixel data one byte at a time (avoids I2C FIFO limits)
+    for (int i = 0; i < kW; ++i) {
+        const std::array<uint8_t, 2> buf = {0x40, data[i]};
+        if (::write(fd_, buf.data(), 2) != 2) return false;
+    }
+    return true;
 }
 
 void OledDisplay::flush(const FrameBuffer& fb) {
