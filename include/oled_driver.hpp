@@ -64,11 +64,16 @@ inline constexpr uint8_t          kOledAddr = 0x3C;
 struct GpioPin { std::string_view chip; unsigned int line; };
 
 // ── Pin definitions (giữ nguyên) ────────────────────────────────
-inline constexpr GpioPin kPinEncA   { "/dev/gpiochip3", 16 };
-inline constexpr GpioPin kPinEncB   { "/dev/gpiochip3", 13 };
-inline constexpr GpioPin kPinEncBtn { "/dev/gpiochip3", 19 };
-inline constexpr GpioPin kPinConfirm{ "/dev/gpiochip3", 25 };
-inline constexpr GpioPin kPinBack   { "/dev/gpiochip3", 20 };
+// Encoder
+inline constexpr GpioPin kPinEncA   { "/dev/gpiochip3", 16 }; // CLK
+inline constexpr GpioPin kPinEncB   { "/dev/gpiochip3", 13 }; // DT
+inline constexpr GpioPin kPinEncBtn { "/dev/gpiochip3", 19 }; // SW
+
+// Button vật lý ở pin header 18
+inline constexpr GpioPin kPinConfirm{ "/dev/gpiochip4", 20 };
+
+// Không dùng
+inline constexpr GpioPin kPinBack   { "/dev/gpiochip4", 20 };
 
 // ── Data structs ─────────────────────────────────────────────────
 struct JointInfo  { std::string name; float pos_rad=0, temp_c=0; };
