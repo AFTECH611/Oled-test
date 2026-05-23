@@ -65,9 +65,9 @@ struct GpioPin { std::string_view chip; unsigned int line; };
 
 // ── Pin definitions (giữ nguyên) ────────────────────────────────
 // Encoder
-inline constexpr GpioPin kPinEncA   { "/dev/gpiochip3", 16 }; // CLK
-inline constexpr GpioPin kPinEncB   { "/dev/gpiochip3", 13 }; // DT
-inline constexpr GpioPin kPinEncBtn { "/dev/gpiochip3", 19 }; // SW
+inline constexpr GpioPin kPinEncA   { "/dev/gpiochip3", 13 }; // CLK
+inline constexpr GpioPin kPinEncB   { "/dev/gpiochip3", 15 }; // DT
+inline constexpr GpioPin kPinEncBtn { "/dev/gpiochip3", 16 }; // SW
 
 // Button vật lý ở pin header 18
 inline constexpr GpioPin kPinConfirm{ "/dev/gpiochip4", 20 };
