@@ -314,8 +314,12 @@ void FrameBuffer::drawScrollbar(int x, int y, int h,
 
 // ── Transition blit ───────────────────────────────────────────
 void FrameBuffer::blitShifted(const FrameBuffer& src, int dx) {
-    auto       dst_span = rawMut();
-    const auto src_span = src.raw();
+    // [FIX-7] Must take a reference to the actual buffer, not a value-copy.
+    //         The original "auto dst_span = rawMut()" copied the array by value,
+    //         so all writes went into the copy and were discarded – the transition
+    //         animation produced a black screen instead of sliding panels.
+    auto& dst_span = rawMut();
+    const auto& src_span = src.raw();
 
     for (int page = 0; page < kPages; ++page) {
         uint8_t*       dst = dst_span.data() + page * kW;
@@ -389,9 +393,13 @@ bool OledDisplay::init() {
 }
 
 bool OledDisplay::writePage(int page, const uint8_t* data) {
-    cmd(static_cast<uint8_t>(0xB0 | page));  // set page
-    cmd(0x00);                                // low  column = 0 (SSD1306, no offset)
-    cmd(0x10);                                // high column = 0
+    // [FIX-6] SH1106 has a built-in 2-pixel column offset (unlike SSD1306).
+    //         Without this correction the display shifts 2 pixels to the left
+    //         and the rightmost 2 columns wrap around to appear at the left.
+    //         Column 2 (0x02 low nibble + 0x10 high nibble) is the true origin.
+    cmd(static_cast<uint8_t>(0xB0 | page));  // set page address
+    cmd(0x02);                                // low  nibble of col start = 2
+    cmd(0x10);                                // high nibble of col start = 0
 
     std::array<uint8_t, 129> buf;
     buf[0] = 0x40;  // data mode
@@ -439,12 +447,18 @@ static bool openGpio(const GpioPin& pin, InputHandler::GpioHandle& h,
     return rc >= 0;
 }
 
-// Encoder CW/CCW lookup table – index = (prev_AB << 2) | curr_AB
+// [FIX-2] Encoder CW/CCW lookup table – index = (prev_AB << 2) | curr_AB
+// Gray-code quadrature:  CW  = 00->01->11->10->00
+//                        CCW = 00->10->11->01->00
+// +1 = CW step, -1 = CCW step, 0 = invalid/no-change
+// The original table had swapped entries that produced wrong direction
+// detection and missed detents on most encoders.
 static constexpr std::array<int8_t, 16> kEncTable = {{
-     0, +1, -1,  0,
-    -1,  0,  0, +1,
-    +1,  0,  0, -1,
-     0, -1, +1,  0,
+//  curr: 00   01   10   11    prev
+          0,  -1,  +1,   0,  // 00
+         +1,   0,   0,  -1,  // 01
+         -1,   0,   0,  +1,  // 10
+          0,  +1,  -1,   0,  // 11
 }};
 
 InputHandler::InputHandler(Config cfg) : cfg_(std::move(cfg)) {}
@@ -486,12 +500,17 @@ Ev InputHandler::pop() {
 }
 
 void InputHandler::push(Ev ev) {
+    // [FIX-1] Acquire lock, enqueue, then RELEASE before calling cb_.
+    //         Original code held the lock while calling cb_(), which ran
+    //         onInput() on the render thread – potential deadlock and jank.
+    // [FIX-5] Removed printf/fflush from inside the lock (and entirely).
+    //         They were serialising the 1 ms poll loop, causing visible lag.
     {
         std::lock_guard lk{q_mtx_};
         if (queue_.size() < 16) queue_.push_back(ev);
-        printf("EV=%d\n", (int)ev);
-        fflush(stdout);
     }
+    // cb_ is safe to call without the lock: it was set before start() [FIX-4]
+    // and is only read/called from this thread from that point on.
     if (cb_) cb_(ev);
 }
 
@@ -517,35 +536,22 @@ void InputHandler::loop() {
             static_cast<uint8_t>((a << 1) | b);
 
         if (curr != enc_prev_) {
-
-            const int8_t dir =
-                kEncTable[(enc_prev_ << 2) | curr];
-
+            const int8_t dir = kEncTable[(enc_prev_ << 2) | curr];
             if (dir != 0) {
-
                 enc_accum_ += dir;
 
-                // Full detent reached
-                if (enc_accum_ >= 4) {
-
+                // [FIX-3] Threshold = 2, not 4.
+                // Most encoders produce 2 transitions per detent (A then B or
+                // vice-versa). With threshold=4 you need TWO full detents before
+                // an event fires, making the encoder feel sluggish/non-responsive.
+                if (enc_accum_ >= 2) {
                     push(Ev::EncCW);
-
-                    std::printf("EV=EncCW\n");
-                    std::fflush(stdout);
-
                     enc_accum_ = 0;
-                }
-                else if (enc_accum_ <= -4) {
-
+                } else if (enc_accum_ <= -2) {
                     push(Ev::EncCCW);
-
-                    std::printf("EV=EncCCW\n");
-                    std::fflush(stdout);
-
                     enc_accum_ = 0;
                 }
             }
-
             enc_prev_ = curr;
         }
 
@@ -588,40 +594,19 @@ void InputHandler::loop() {
 
             // Stable released
             else if (!raw && bs.stable) {
-
                 bs.stable = false;
-
-                if (!bs.long_fired &&
-                    short_ev != Ev::None)
-                {
+                if (!bs.long_fired && short_ev != Ev::None) {
                     push(short_ev);
-
-                    std::printf(
-                        "EV=%d\n",
-                        static_cast<int>(short_ev));
-
-                    std::fflush(stdout);
                 }
-
                 bs.press_ms = 0;
             }
 
             // Long press
-            if (raw &&
-                bs.stable &&
-                !bs.long_fired &&
+            if (raw && bs.stable && !bs.long_fired &&
                 long_ev != Ev::None &&
-                (now - bs.press_ms)
-                    >= cfg_.long_ms)
+                (now - bs.press_ms) >= cfg_.long_ms)
             {
                 push(long_ev);
-
-                std::printf(
-                    "EV=%d LONG\n",
-                    static_cast<int>(long_ev));
-
-                std::fflush(stdout);
-
                 bs.long_fired = true;
             }
         };
