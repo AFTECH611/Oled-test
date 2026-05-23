@@ -356,6 +356,7 @@ private:
 
     std::array<UIScreen*, static_cast<std::size_t>(ScreenID::_Count)> screens_{};
     UIScreen* cur_=nullptr;
+    UIScreen* prev_=nullptr;
 
     bool  in_trans_ =false;
     float trans_t_  =0,trans_dur_=0.22f;
